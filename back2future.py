@@ -7,9 +7,22 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.serialization import load_lua
+# from torch.utils.serialization import load_lua
+import torchfile
 from torch.autograd import Variable
-from correlation_package.modules.correlation import Correlation
+from spatial_correlation_sampler import spatial_correlation_sample
+
+def correlate(input1, input2):
+    out_corr = spatial_correlation_sample(input1,
+                                          input2,
+                                          kernel_size=1,
+                                          patch_size=9,
+                                          stride=1)
+    # collate dimensions 1 and 2 in order to be treated as a
+    # regular 4D tensor
+    b, ph, pw, h, w = out_corr.size()
+    out_corr = out_corr.view(b, ph * pw, h, w)/input1.size(1)
+    return out_corr
 
 def conv_feat_block(nIn, nOut):
     return nn.Sequential(
@@ -70,7 +83,7 @@ class Model(nn.Module):
         self.conv6b = conv_feat_block(128,192)
         self.conv6c = conv_feat_block(128,192)
 
-        self.corr = Correlation(pad_size=4, kernel_size=1, max_displacement=4, stride1=1, stride2=1, corr_multiply=1)
+        self.corr = correlate
 
         self.decoder_fwd6 = conv_dec_block(162)
         self.decoder_bwd6 = conv_dec_block(162)
@@ -100,8 +113,8 @@ class Model(nn.Module):
             if type(m)==nn.Conv2d:
                 weight_path = loadpath + '_' + str(i+1) + 'weight.t7'
                 bias_path = loadpath + '_' + str(i+1) + 'bias.t7'
-                m.weight.data.copy_(load_lua(weight_path))
-                m.bias.data.copy_(load_lua(bias_path))
+                m.weight.data.copy_(torchfile.load(weight_path))
+                m.bias.data.copy_(torchfile.load(bias_path))
 
     def initialize(self):
         #This is used for the first load after saving weight files from lua

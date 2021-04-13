@@ -4,18 +4,23 @@ import numpy as np
 from scipy.misc import imread, imresize
 from torchvision.transforms import ToTensor
 from torch.autograd import Variable
+import pickle
 
 def main():
-    model = Model(pretrained='pretrained/back2future_kitti.pth.tar')
+    model = Model(pretrained='pretrained/b2f_kitti.pth.tar')
     model = model.cuda()
     im_tar, im_refs = fetch_image_tensors()
     im_tar = Variable(im_tar.unsqueeze(0)).cuda()
     im_refs = [Variable(im_r.unsqueeze(0)).cuda() for im_r in im_refs]
     flow_fwd, flow_bwd, occ = model(im_tar, im_refs)
-    np.save('outputs.npy', {'flow_fwd':flow_fwd[0].cpu().data.numpy(),
-                            'flow_bwd':flow_bwd[0].cpu().data.numpy(),
-                            'occ':occ[0].cpu().data.numpy()})
-    print('Outputs saved in outputs.npy')
+    with open('outputs.pk','wb') as f:
+        pickle.dump({'flow_fwd':flow_fwd[0].cpu().data.numpy(),
+                                'flow_bwd':flow_bwd[0].cpu().data.numpy(),
+                                'occ':occ[0].cpu().data.numpy()},f)
+    # np.save('outputs.npy', {'flow_fwd':flow_fwd[0].cpu().data.numpy(),
+    #                         'flow_bwd':flow_bwd[0].cpu().data.numpy(),
+    #                         'occ':occ[0].cpu().data.numpy()})
+    print('Outputs saved in outputs.pk')
     print('Done!')
 
 def load_as_float(path):
